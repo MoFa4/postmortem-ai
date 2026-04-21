@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <title>PostMortemAI | 2-Step Flow</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 3rem auto; padding: 0 1rem; background: #f8fafc; color: #0f172a; }
+        h1 { color: #2563eb; margin-bottom: 0.25rem; }
+        .status { padding: 1rem; background: #f1f5f9; border-radius: 8px; margin: 1.5rem 0; font-weight: 500; text-align: center; min-height: 24px; }
+        .status.normal { background: #dcfce7; color: #166534; }
+        .status.ready { background: #fef3c7; color: #92400e; }
+        .status.success { background: #dbeafe; color: #1e40af; }
+        .btn-group { display: flex; gap: 1rem; margin: 1rem 0; }
+        button { flex: 1; padding: 1rem; font-size: 1rem; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .btn-inject { background: #dc2626; color: white; }
+        .btn-inject:hover { background: #b91c1c; }
+        .btn-scan { background: #64748b; color: #cbd5e1; cursor: not-allowed; }
+        .btn-scan.active { background: #059669; color: white; cursor: pointer; }
+        .btn-scan.active:hover { background: #047857; }
+        #output { background: white; padding: 1.5rem; border-radius: 8px; border: 1px solid #e2e8f0; min-height: 150px; }
+    </style>
+</head>
+<body>
+    <h1>🤖 PostMortemAI</h1>
+    <p>Autonomous Incident Documentation Engine</p>
+
+    <div class="status" id="status">✅ System Normal. No abnormalities detected.</div>
+
+    <div class="btn-group">
+        <button class="btn-inject" onclick="inject()">🔴 1. Inject Incident</button>
+        <button class="btn-scan" id="scanBtn" onclick="scan()" disabled>🟢 2. Scan & Generate</button>
+    </div>
+
+    <h3>📄 Output</h3>
+    <div id="output">Waiting for action...</div>
+
+    <script>
+        async function inject() {
+            const statusEl = document.getElementById('status');
+            const scanBtn = document.getElementById('scanBtn');
+            const outputEl = document.getElementById('output');
+            
+            statusEl.className = 'status ready';
+            statusEl.textContent = '⏳ Injecting failure simulation...';
+            outputEl.textContent = '';
+            
+            const res = await fetch('/inject', { method: 'POST', headers: {'Content-Type': 'application/json'} });
+            const data = await res.json();
+            
+            if(data.status === 'ready') {
+                statusEl.className = 'status ready';
+                statusEl.innerHTML = `🚨 Incident <b>${data.incident_id}</b> injected. System abnormal.`;
+                scanBtn.disabled = false;
+                scanBtn.classList.add('active');
+                outputEl.textContent = 'Click Scan to analyze & generate report.';
+            }
+        }
+
+        async function scan() {
+            const statusEl = document.getElementById('status');
+            const scanBtn = document.getElementById('scanBtn');
+            const outputEl = document.getElementById('output');
+            
+            statusEl.className = 'status';
+            statusEl.textContent = '⏳ Analyzing logs, checking bias, generating report...';
+            
+            const res = await fetch('/scan', { method: 'POST' });
+            const data = await res.json();
+            
+            if(data.status === 'normal') {
+                statusEl.className = 'status normal';
+                statusEl.textContent = data.message;
+                outputEl.textContent = '';
+                return;
+            }
+            
+            if(data.status === 'success') {
+                statusEl.className = 'status success';
+                statusEl.innerHTML = `✅ Report generated & routed to Slack. <a href="${data.report_url}" target="_blank">Open File</a>`;
+                
+                const reportRes = await fetch(`/reports/${data.incident_id}.md`);
+                const md = await reportRes.text();
+                outputEl.innerHTML = marked.parse(md);
+                
+                scanBtn.disabled = true;
+                scanBtn.classList.remove('active');
+            }
+        }
+    </script>
+</body>
+</html>
